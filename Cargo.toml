@@ -1,0 +1,21 @@
+[package]
+name = "can2040"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libc = "0.2"
+nb = "1.1"
+embedded-can = "0.4"
+cortex-m = "0.7"
+
+rp-pico = "0.8"
+cortex-m-rt = "0.7"
+embedded-hal = { version = "0.2.5", features = ["unproven"] }
+rp2040-hal = { version = "0.9", features = ["rt", "critical-section-impl"] }
+
+defmt = "0.3"
+defmt-rtt = "0.4"
+
+[build-dependencies]
+bindgen = "0.68"
