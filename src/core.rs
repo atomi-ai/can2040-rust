@@ -8,6 +8,7 @@ use cortex_m::asm::wfi;
 use cortex_m::interrupt::Mutex;
 use defmt::{debug, Format};
 use embedded_can::{ErrorKind, Id, StandardId};
+use nb::Error;
 use rp2040_hal::pac::interrupt;
 use rp_pico as bsp;
 
@@ -84,7 +85,7 @@ impl can2040 {
 
 pub struct Can2040 {}
 
-#[derive(Debug)]
+#[derive(Debug, defmt::Format)]
 pub enum CanError {
     TransmissionError,
     ReceptionError,
@@ -181,6 +182,39 @@ unsafe extern "C" fn can2040_cb(cd: *mut can2040, notify: u32, msg: *mut can2040
         });
     }
     // TODO(zephyr): More code.
+}
+
+impl embedded_can::nb::Can for Can2040 {
+    type Frame = CanFrame;
+    type Error = CanError;
+
+    fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
+        unsafe {
+            if let Some(mut cbus) = CBUS.as_mut() {
+                let cbus_ptr = &mut *cbus as *mut _;
+                if can2040_check_transmit(cbus_ptr) == 0 {
+                    Err(nb::Error::WouldBlock)
+                } else {
+                    // critical path
+                    can2040_transmit(cbus_ptr, frame as *const _ as *mut _);
+                    Ok(None)
+                }
+            } else {
+                Err(nb::Error::Other(CanError::TransmissionError))
+            }
+        }
+    }
+
+    fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
+        cortex_m::interrupt::free(|cs| {
+            let mut queue = RECEIVE_QUEUE.borrow(cs).borrow_mut();
+            if queue.is_empty() {
+                Err(nb::Error::WouldBlock)
+            } else {
+                return Ok(queue.remove(0));
+            }
+        })
+    }
 }
 
 impl embedded_can::blocking::Can for Can2040 {
