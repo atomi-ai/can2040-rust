@@ -6,7 +6,7 @@ use std::path::PathBuf;
 fn main() {
     // 获取目录路径
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    println!("xfguo: dir = {}", dir);
+    println!("dir = {}", dir);
 
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let header_path = PathBuf::from("c_lib/can2040.h");
