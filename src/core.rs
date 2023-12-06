@@ -125,7 +125,7 @@ pub struct CanFrame(can2040_msg);
 impl embedded_can::Frame for CanFrame {
     fn new(id: impl Into<embedded_can::Id>, data: &[u8]) -> Option<Self> {
         if data.len() > 8 {
-            return None;  // data太大
+            return None;
         }
 
         let mut data_arr = [0u8; 8];
