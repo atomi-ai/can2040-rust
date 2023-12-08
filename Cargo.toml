@@ -2,6 +2,12 @@
 name = "can2040"
 version = "0.1.0"
 edition = "2021"
+authors = ["Zephyr Guo <zephyr@atomi.ai>"]
+license = "GPL-3.0"
+description = "A Can2040 port for Rust."
+repository = "https://github.com/atomi-ai/can2040-rust"
+categories = ["can"]
+keywords = ["can", "canopen"]
 
 [dependencies]
 libc = "0.2"
