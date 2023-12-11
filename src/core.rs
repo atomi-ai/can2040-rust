@@ -100,7 +100,7 @@ impl embedded_can::Error for CanError {
 impl fmt::Debug for can2040_msg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         unsafe {
-            write!(f, "can2040_msg {{ id: {:x?}, dlc: {:x?}, data: {:x?} }}",
+            write!(f, "can2040_msg(D) {{ id: {:x?}, dlc: {:x?}, data: {:x?} }}",
                    self.id, self.dlc, &self.__bindgen_anon_1.data[..self.dlc as usize])
         }
     }
@@ -109,12 +109,8 @@ impl fmt::Debug for can2040_msg {
 impl defmt::Format for can2040_msg {
     fn format(&self, f: defmt::Formatter) {
         unsafe {
-            defmt::write!(
-                f,
-                "CanFrame {{ id: {:x}, data: {:x} }}",
-                self.id,
-                self.__bindgen_anon_1.data,
-            );
+            defmt::write!(f, "can2040_msg(F) {{ id: {:x}, dlc: {:x}, data: {:x} }}",
+                   self.id, self.dlc, &self.__bindgen_anon_1.data[..self.dlc as usize])
         }
     }
 }
@@ -167,7 +163,7 @@ impl embedded_can::Frame for CanFrame {
 
     fn data(&self) -> &[u8] {
         // 假设您可以从 __bindgen_anon_1 字段获取数据的byte slice
-        unsafe { &self.0.__bindgen_anon_1.data }
+        unsafe { &self.0.__bindgen_anon_1.data[0..self.0.dlc as usize] }
     }
 }
 
