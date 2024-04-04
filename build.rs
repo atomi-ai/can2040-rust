@@ -18,9 +18,7 @@ fn main() {
         .generate()
         .expect("Failed to generate bindings");
     let bindings_path = out.join("can2040_lib.rs");
-    bindings
-        .write_to_file(&bindings_path)
-        .expect("Failed to write bindings to file");
+    bindings.write_to_file(&bindings_path).expect("Failed to write bindings to file");
     println!("cargo:rerun-if-changed={}", bindings_path.display());
     let lib_path = env::current_dir().unwrap().join("c_lib");
     println!("cargo:rustc-link-search=native={}", lib_path.display());

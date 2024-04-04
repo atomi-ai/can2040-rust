@@ -4,5 +4,7 @@ pub mod core;
 
 pub use core::*;
 
-extern crate libc;
 extern crate alloc;
+extern crate libc;
+
+pub mod global_allocator;

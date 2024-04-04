@@ -1,18 +1,21 @@
 extern crate alloc;
 
+use alloc::fmt;
 use alloc::vec::Vec;
 use core::cell::RefCell;
-use alloc::fmt;
-use bsp::hal::pac;
+
+use rp2040_hal::pac;
 use cortex_m::asm::wfi;
 use cortex_m::interrupt::Mutex;
 use defmt::{debug, Format};
 use embedded_can::{ErrorKind, Id, StandardId};
-use nb::Error;
-use rp2040_hal::pac::interrupt;
-use rp_pico as bsp;
+use rp2040_hal::pac::{interrupt, Interrupt};
 
-use crate::core::can2040_lib::{can2040, can2040_bitunstuffer, can2040_callback_config, can2040_check_transmit, can2040_msg, can2040_msg__bindgen_ty_1, CAN2040_NOTIFY_RX, can2040_pio_irq_handler, can2040_setup, can2040_start, can2040_transmit};
+use crate::core::can2040_lib::{
+    can2040, can2040_bitunstuffer, can2040_callback_config, can2040_check_transmit, can2040_msg,
+    can2040_msg__bindgen_ty_1, can2040_pio_irq_handler, can2040_setup, can2040_start,
+    can2040_transmit, CAN2040_NOTIFY_RX,
+};
 
 #[allow(warnings)]
 mod can2040_lib {
@@ -21,12 +24,7 @@ mod can2040_lib {
 
 impl can2040_bitunstuffer {
     pub fn new() -> Self {
-        Self {
-            stuffed_bits: 0,
-            count_stuff: 0,
-            unstuffed_bits: 0,
-            count_unstuff: 0,
-        }
+        Self { stuffed_bits: 0, count_stuff: 0, unstuffed_bits: 0, count_unstuff: 0 }
     }
 }
 
@@ -40,22 +38,13 @@ impl can2040_msg__bindgen_ty_1 {
 
 impl can2040_msg {
     pub fn new() -> Self {
-        Self {
-            id: 0,
-            dlc: 0,
-            __bindgen_anon_1: can2040_msg__bindgen_ty_1::new(),
-        }
+        Self { id: 0, dlc: 0, __bindgen_anon_1: can2040_msg__bindgen_ty_1::new() }
     }
 }
 
 impl can2040_transmit {
     pub fn new() -> Self {
-        Self {
-            msg: can2040_msg::new(),
-            crc: 0,
-            stuffed_words: 0,
-            stuffed_data: [0; 5],
-        }
+        Self { msg: can2040_msg::new(), crc: 0, stuffed_words: 0, stuffed_data: [0; 5] }
     }
 }
 
@@ -100,8 +89,13 @@ impl embedded_can::Error for CanError {
 impl fmt::Debug for can2040_msg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         unsafe {
-            write!(f, "can2040_msg(D) {{ id: {:x?}, dlc: {:x?}, data: {:x?} }}",
-                   self.id, self.dlc, &self.__bindgen_anon_1.data[..self.dlc as usize])
+            write!(
+                f,
+                "can2040_msg(D) {{ id: {:x?}, dlc: {:x?}, data: {:x?} }}",
+                self.id,
+                self.dlc,
+                &self.__bindgen_anon_1.data[..self.dlc as usize]
+            )
         }
     }
 }
@@ -109,8 +103,13 @@ impl fmt::Debug for can2040_msg {
 impl defmt::Format for can2040_msg {
     fn format(&self, f: defmt::Formatter) {
         unsafe {
-            defmt::write!(f, "can2040_msg(F) {{ id: {:x}, dlc: {:x}, data: {:x} }}",
-                   self.id, self.dlc, &self.__bindgen_anon_1.data[..self.dlc as usize])
+            defmt::write!(
+                f,
+                "can2040_msg(F) {{ id: {:x}, dlc: {:x}, data: {:x} }}",
+                self.id,
+                self.dlc,
+                &self.__bindgen_anon_1.data[..self.dlc as usize]
+            )
         }
     }
 }
@@ -130,18 +129,16 @@ impl embedded_can::Frame for CanFrame {
         Some(CanFrame {
             0: can2040_msg {
                 id: match id.into() {
-                    Id::Standard(sid) => { sid.as_raw() as u32 }
+                    Id::Standard(sid) => sid.as_raw() as u32,
                     Id::Extended(_) => return None,
                 },
                 dlc: data.len() as u32,
-                __bindgen_anon_1: can2040_msg__bindgen_ty_1 {
-                    data: data_arr,
-                },
-            }
+                __bindgen_anon_1: can2040_msg__bindgen_ty_1 { data: data_arr },
+            },
         })
     }
 
-    fn new_remote(id: impl Into<Id>, dlc: usize) -> Option<Self> {
+    fn new_remote(_id: impl Into<Id>, _dlc: usize) -> Option<Self> {
         todo!()
     }
 
@@ -169,15 +166,15 @@ impl embedded_can::Frame for CanFrame {
 
 static RECEIVE_QUEUE: Mutex<RefCell<Vec<CanFrame>>> = Mutex::new(RefCell::new(Vec::new()));
 
-unsafe extern "C" fn can2040_cb(cd: *mut can2040, notify: u32, msg: *mut can2040_msg) {
-    debug!("xfguo: can2040_cb 0, msg = {:?}", *msg);
+unsafe extern "C" fn can2040_cb(_cd: *mut can2040, notify: u32, msg: *mut can2040_msg) {
+    debug!("xfguo: can2040_cb 0, notify = {:x}, msg = {:?}", notify, *msg);
     if notify == CAN2040_NOTIFY_RX {
         let msg_copy = *msg.clone();
         cortex_m::interrupt::free(|cs| {
             RECEIVE_QUEUE.borrow(cs).borrow_mut().push(CanFrame(msg_copy));
         });
     }
-    // TODO(zephyr): More code.
+    // TODO(zephyr): More code for TX / Err
 }
 
 impl embedded_can::nb::Can for Can2040 {
@@ -186,7 +183,7 @@ impl embedded_can::nb::Can for Can2040 {
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
         unsafe {
-            if let Some(mut cbus) = CBUS.as_mut() {
+            if let Some(cbus) = CBUS.as_mut() {
                 let cbus_ptr = &mut *cbus as *mut _;
                 if can2040_check_transmit(cbus_ptr) == 0 {
                     Err(nb::Error::WouldBlock)
@@ -213,13 +210,14 @@ impl embedded_can::nb::Can for Can2040 {
     }
 }
 
+// TODO(zephyr): Remove blocking::Can, if we need blocking, we can use nb::block!()
 impl embedded_can::blocking::Can for Can2040 {
     type Frame = CanFrame;
     type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
         unsafe {
-            if let Some(mut cbus) = CBUS.as_mut() {
+            if let Some(cbus) = CBUS.as_mut() {
                 let cbus_ptr = &mut *cbus as *mut _;
 
                 // Wait for CAN to be ready to transmit
@@ -249,23 +247,30 @@ impl embedded_can::blocking::Can for Can2040 {
     }
 }
 
-const FREQ_SYS: u32 = 125000000;
-const CONFIG_CANBUS_FREQUENCY: u32 = 10000;
-const CONFIG_RP2040_CANBUS_GPIO_RX: u32 = 19;
-const CONFIG_RP2040_CANBUS_GPIO_TX: u32 = 27;
+pub const RP2040_SYS_FREQ: u32 = 125_000_000;
 
 static mut CBUS: Option<can2040> = None;
 
 #[interrupt]
 fn PIO0_IRQ_0() {
     unsafe {
-        if let Some(mut cbus) = CBUS.as_mut() {
+        if let Some(cbus) = CBUS.as_mut() {
             can2040_pio_irq_handler(&mut *cbus as *mut _);
         }
     }
 }
 
-pub fn initialize_cbus(core: &mut cortex_m::Peripherals) -> Can2040 {
+/// PIO0_IRQ_0 is hard-coded by the implementation of the Can2040 C library.
+/// Therefore, if you need to enable can-bus on RP2040, you must reserve PIO0
+/// for Can2040. Additionally, when enabling Can2040, we forcibly set the
+/// priority of Can2040 to 0 to ensure that communication interrupts can
+/// receive the most real-time response.
+pub fn initialize_cbus(
+    core: &mut cortex_m::Peripherals,
+    baud_rate: u32,
+    can_rx_id: u32,
+    can_tx_id: u32,
+) -> Can2040 {
     unsafe {
         assert!(CBUS.is_none());
         CBUS = Some(can2040::new());
@@ -273,16 +278,10 @@ pub fn initialize_cbus(core: &mut cortex_m::Peripherals) -> Can2040 {
         let cbus_ptr = &mut *cbus as *mut _;
         can2040_setup(cbus_ptr, 0);
         can2040_callback_config(cbus_ptr, Some(can2040_cb));
-        can2040_start(
-            cbus_ptr,
-            FREQ_SYS,
-            CONFIG_CANBUS_FREQUENCY,
-            CONFIG_RP2040_CANBUS_GPIO_RX,
-            CONFIG_RP2040_CANBUS_GPIO_TX,
-        );
+        can2040_start(cbus_ptr, RP2040_SYS_FREQ, baud_rate, can_rx_id, can_tx_id);
 
-        // enable interrupts and set priority for it.
-        core.NVIC.set_priority(pac::Interrupt::PIO0_IRQ_0, 1);
+        // Enable interrupts and set priority for it.
+        core.NVIC.set_priority(pac::Interrupt::PIO0_IRQ_0, 0);
         pac::NVIC::unmask(pac::Interrupt::PIO0_IRQ_0);
         Can2040 {}
     }
