@@ -9,7 +9,7 @@ use cortex_m::asm::wfi;
 use cortex_m::interrupt::Mutex;
 use defmt::{debug, Format};
 use embedded_can::{ErrorKind, Id, StandardId};
-use rp2040_hal::pac::{interrupt, Interrupt};
+use rp2040_hal::pac::interrupt;
 
 use crate::core::can2040_lib::{
     can2040, can2040_bitunstuffer, can2040_callback_config, can2040_check_transmit, can2040_msg,
