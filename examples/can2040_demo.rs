@@ -6,10 +6,11 @@
 
 extern crate alloc;
 
+use alloc_cortex_m::CortexMHeap;
 use defmt::*;
 use defmt_rtt as _;
 use embedded_can::nb::Can;
-use embedded_can::{Frame, StandardId};
+use embedded_can::{ExtendedId, Frame, StandardId};
 use embedded_hal::digital::v2::ToggleableOutputPin;
 use panic_probe as _;
 use rp2040_hal::clocks::init_clocks_and_plls;
@@ -22,8 +23,6 @@ use can2040::{Can2040, CanFrame};
 const CONFIG_CANBUS_FREQUENCY: u32 = 10_000;
 const CONFIG_RP2040_CANBUS_GPIO_RX: u32 = 26;
 const CONFIG_RP2040_CANBUS_GPIO_TX: u32 = 27;
-
-use alloc_cortex_m::CortexMHeap;
 
 #[global_allocator]
 pub static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -74,7 +73,16 @@ fn main() -> ! {
         count += 1;
         if count % 1_000_000 == 13 {
             packet_num += 1;
-            let f = create_frame(5, packet_num);
+            info!("before generate frame");
+            let f = CanFrame::new(
+                ExtendedId::new(0x123).expect("error in create standard id"),
+                &[1, 2, 3, (packet_num & 0xff) as u8],
+            )
+            .expect("error in create_frame");
+
+            info!("To transmit frame: {}", Debug2Format(&f));
+
+            // let f = create_frame(5, packet_num);
             match <Can2040 as embedded_can::blocking::Can>::transmit(&mut can_bus, &f) {
                 Ok(_) => {}
                 Err(err) => {
@@ -86,7 +94,7 @@ fn main() -> ! {
         }
         match can_bus.receive() {
             Ok(f) => {
-                info!("Received packet: {:?}", f);
+                info!("Received packet: {:?}, is_extended: {}", f, f.is_extended());
             }
             Err(nb::Error::Other(err)) => {
                 error!("Errors in reading CAN frame, {:?}", err);

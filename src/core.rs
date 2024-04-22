@@ -7,7 +7,7 @@ use core::cell::RefCell;
 use cortex_m::asm::wfi;
 use cortex_m::interrupt::Mutex;
 use defmt::{debug, Format};
-use embedded_can::{ErrorKind, Id, StandardId};
+use embedded_can::{ErrorKind, ExtendedId, Id, StandardId};
 use rp2040_hal::pac;
 use rp2040_hal::pac::interrupt;
 
@@ -116,6 +116,9 @@ impl defmt::Format for can2040_msg {
 
 #[derive(Clone, Debug, Format)]
 pub struct CanFrame(can2040_msg);
+const CAN2040_ID_RTR: u32 = 1 << 30;
+const CAN2040_ID_EFF: u32 = 1 << 31;
+const EXTENDED_ID_MASK: u32 = 0x1FFFFFFF;
 
 impl embedded_can::Frame for CanFrame {
     fn new(id: impl Into<embedded_can::Id>, data: &[u8]) -> Option<Self> {
@@ -129,7 +132,7 @@ impl embedded_can::Frame for CanFrame {
         Some(CanFrame(can2040_msg {
             id: match id.into() {
                 Id::Standard(sid) => sid.as_raw() as u32,
-                Id::Extended(_) => return None,
+                Id::Extended(eid) => eid.as_raw() | CAN2040_ID_EFF,
             },
             dlc: data.len() as u32,
             __bindgen_anon_1: can2040_msg__bindgen_ty_1 { data: data_arr },
@@ -141,15 +144,19 @@ impl embedded_can::Frame for CanFrame {
     }
 
     fn is_extended(&self) -> bool {
-        false
+        self.0.id & CAN2040_ID_EFF > 0
     }
 
     fn is_remote_frame(&self) -> bool {
-        false
+        self.0.id & CAN2040_ID_RTR > 0
     }
 
     fn id(&self) -> embedded_can::Id {
-        embedded_can::Id::Standard(StandardId::new(self.0.id as u16).unwrap())
+        if self.is_extended() {
+            embedded_can::Id::Extended(ExtendedId::new(self.0.id & EXTENDED_ID_MASK).unwrap())
+        } else {
+            embedded_can::Id::Standard(StandardId::new(self.0.id as u16).unwrap())
+        }
     }
 
     fn dlc(&self) -> usize {
