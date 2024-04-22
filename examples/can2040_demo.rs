@@ -12,17 +12,28 @@ use embedded_can::nb::Can;
 use embedded_can::{Frame, StandardId};
 use embedded_hal::digital::v2::ToggleableOutputPin;
 use panic_probe as _;
-use rp2040_hal::{entry, pac, Sio, Watchdog};
 use rp2040_hal::clocks::init_clocks_and_plls;
 use rp2040_hal::gpio::Pins;
+use rp2040_hal::{entry, pac, Sio, Watchdog};
 use rp_pico::XOSC_CRYSTAL_FREQ;
 
-use can2040::global_allocator::init_allocator;
 use can2040::{Can2040, CanFrame};
 
 const CONFIG_CANBUS_FREQUENCY: u32 = 10_000;
 const CONFIG_RP2040_CANBUS_GPIO_RX: u32 = 26;
 const CONFIG_RP2040_CANBUS_GPIO_TX: u32 = 27;
+
+use alloc_cortex_m::CortexMHeap;
+
+#[global_allocator]
+pub static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
+
+pub fn init_allocator() {
+    // Please set the correct heap size.
+    const HEAP_SIZE: usize = 0x8000;
+    static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+    unsafe { ALLOCATOR.init(HEAP.as_ptr() as usize, HEAP.len()) }
+}
 
 #[entry]
 fn main() -> ! {

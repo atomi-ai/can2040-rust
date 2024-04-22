@@ -1,6 +1,6 @@
 [package]
 name = "can2040"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Zephyr Guo <zephyr@atomi.ai>"]
 license = "GPL-3.0"

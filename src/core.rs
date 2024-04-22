@@ -4,11 +4,11 @@ use alloc::fmt;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
-use rp2040_hal::pac;
 use cortex_m::asm::wfi;
 use cortex_m::interrupt::Mutex;
 use defmt::{debug, Format};
 use embedded_can::{ErrorKind, Id, StandardId};
+use rp2040_hal::pac;
 use rp2040_hal::pac::interrupt;
 
 use crate::core::can2040_lib::{
@@ -126,16 +126,14 @@ impl embedded_can::Frame for CanFrame {
         let mut data_arr = [0u8; 8];
         data_arr[..data.len()].copy_from_slice(data);
 
-        Some(CanFrame {
-            0: can2040_msg {
-                id: match id.into() {
-                    Id::Standard(sid) => sid.as_raw() as u32,
-                    Id::Extended(_) => return None,
-                },
-                dlc: data.len() as u32,
-                __bindgen_anon_1: can2040_msg__bindgen_ty_1 { data: data_arr },
+        Some(CanFrame(can2040_msg {
+            id: match id.into() {
+                Id::Standard(sid) => sid.as_raw() as u32,
+                Id::Extended(_) => return None,
             },
-        })
+            dlc: data.len() as u32,
+            __bindgen_anon_1: can2040_msg__bindgen_ty_1 { data: data_arr },
+        }))
     }
 
     fn new_remote(_id: impl Into<Id>, _dlc: usize) -> Option<Self> {
@@ -169,9 +167,8 @@ static RECEIVE_QUEUE: Mutex<RefCell<Vec<CanFrame>>> = Mutex::new(RefCell::new(Ve
 unsafe extern "C" fn can2040_cb(_cd: *mut can2040, notify: u32, msg: *mut can2040_msg) {
     debug!("xfguo: can2040_cb 0, notify = {:x}, msg = {:?}", notify, *msg);
     if notify == CAN2040_NOTIFY_RX {
-        let msg_copy = *msg.clone();
         cortex_m::interrupt::free(|cs| {
-            RECEIVE_QUEUE.borrow(cs).borrow_mut().push(CanFrame(msg_copy));
+            RECEIVE_QUEUE.borrow(cs).borrow_mut().push(CanFrame(*msg));
         });
     }
     // TODO(zephyr): More code for TX / Err
@@ -204,7 +201,7 @@ impl embedded_can::nb::Can for Can2040 {
             if queue.is_empty() {
                 Err(nb::Error::WouldBlock)
             } else {
-                return Ok(queue.remove(0));
+                Ok(queue.remove(0))
             }
         })
     }
