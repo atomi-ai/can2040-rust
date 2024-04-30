@@ -7,18 +7,17 @@
 extern crate alloc;
 
 use alloc_cortex_m::CortexMHeap;
+use can2040::{Can2040, CanFrame};
 use defmt::*;
 use defmt_rtt as _;
 use embedded_can::nb::Can;
 use embedded_can::{ExtendedId, Frame, StandardId};
-use embedded_hal::digital::v2::ToggleableOutputPin;
+use embedded_hal::digital::StatefulOutputPin;
 use panic_probe as _;
 use rp2040_hal::clocks::init_clocks_and_plls;
 use rp2040_hal::gpio::Pins;
 use rp2040_hal::{entry, pac, Sio, Watchdog};
 use rp_pico::XOSC_CRYSTAL_FREQ;
-
-use can2040::{Can2040, CanFrame};
 
 const CONFIG_CANBUS_FREQUENCY: u32 = 10_000;
 const CONFIG_RP2040_CANBUS_GPIO_RX: u32 = 26;

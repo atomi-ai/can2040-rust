@@ -172,7 +172,7 @@ impl embedded_can::Frame for CanFrame {
 static RECEIVE_QUEUE: Mutex<RefCell<Vec<CanFrame>>> = Mutex::new(RefCell::new(Vec::new()));
 
 unsafe extern "C" fn can2040_cb(_cd: *mut can2040, notify: u32, msg: *mut can2040_msg) {
-    debug!("xfguo: can2040_cb 0, notify = {:x}, msg = {:?}", notify, *msg);
+    debug!("can2040_cb(), notify = {:x}, msg = {:?}", notify, *msg);
     if notify == CAN2040_NOTIFY_RX {
         cortex_m::interrupt::free(|cs| {
             RECEIVE_QUEUE.borrow(cs).borrow_mut().push(CanFrame(*msg));
