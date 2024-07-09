@@ -20,8 +20,6 @@ use rp2040_hal::{entry, pac, Sio, Watchdog};
 use rp_pico::XOSC_CRYSTAL_FREQ;
 
 const CONFIG_CANBUS_FREQUENCY: u32 = 10_000;
-const CONFIG_RP2040_CANBUS_GPIO_RX: u32 = 26;
-const CONFIG_RP2040_CANBUS_GPIO_TX: u32 = 27;
 
 #[global_allocator]
 pub static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -59,11 +57,11 @@ fn main() -> ! {
 
     let mut led_pin = pins.gpio25.into_push_pull_output();
 
-    let mut can_bus = can2040::initialize_cbus(
+    let mut can_bus = Can2040::new(
         &mut core,
         CONFIG_CANBUS_FREQUENCY,
-        CONFIG_RP2040_CANBUS_GPIO_RX,
-        CONFIG_RP2040_CANBUS_GPIO_TX,
+        pins.gpio26.reconfigure(),
+        pins.gpio27.reconfigure(),
     );
 
     let mut count = 0u64;

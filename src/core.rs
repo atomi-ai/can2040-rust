@@ -8,8 +8,9 @@ use cortex_m::asm::wfi;
 use cortex_m::interrupt::Mutex;
 use defmt::{debug, Format};
 use embedded_can::{ErrorKind, ExtendedId, Id, StandardId};
-use rp2040_hal::pac;
+use rp2040_hal::gpio::{FunctionNull, PinId, PullNone};
 use rp2040_hal::pac::interrupt;
+use rp2040_hal::{gpio::Pin, pac};
 
 use crate::core::can2040_lib::{
     can2040, can2040_bitunstuffer, can2040_callback_config, can2040_check_transmit, can2040_msg,
@@ -269,6 +270,7 @@ fn PIO0_IRQ_0() {
 /// for Can2040. Additionally, when enabling Can2040, we forcibly set the
 /// priority of Can2040 to 0 to ensure that communication interrupts can
 /// receive the most real-time response.
+#[deprecated(note = "does not use hal for pins, use Can2040::new instead")]
 pub fn initialize_cbus(
     core: &mut cortex_m::Peripherals,
     baud_rate: u32,
@@ -288,5 +290,35 @@ pub fn initialize_cbus(
         core.NVIC.set_priority(pac::Interrupt::PIO0_IRQ_0, 0);
         pac::NVIC::unmask(pac::Interrupt::PIO0_IRQ_0);
         Can2040 {}
+    }
+}
+
+impl Can2040 {
+    pub fn new<RX: PinId, TX: PinId>(
+        core: &mut cortex_m::Peripherals,
+        baud_rate: u32,
+        can_rx: Pin<RX, FunctionNull, PullNone>,
+        can_tx: Pin<TX, FunctionNull, PullNone>,
+    ) -> Self {
+        unsafe {
+            assert!(CBUS.is_none());
+            CBUS = Some(can2040::new());
+            let cbus = CBUS.as_mut().unwrap();
+            let cbus_ptr = &mut *cbus as *mut _;
+            can2040_setup(cbus_ptr, 0);
+            can2040_callback_config(cbus_ptr, Some(can2040_cb));
+            can2040_start(
+                cbus_ptr,
+                RP2040_SYS_FREQ,
+                baud_rate,
+                can_rx.id().num as u32,
+                can_tx.id().num as u32,
+            );
+
+            // Enable interrupts and set priority for it.
+            core.NVIC.set_priority(pac::Interrupt::PIO0_IRQ_0, 0);
+            pac::NVIC::unmask(pac::Interrupt::PIO0_IRQ_0);
+            Can2040 {}
+        }
     }
 }
